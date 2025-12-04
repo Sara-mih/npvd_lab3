@@ -35,14 +35,14 @@ onMounted(() =>{
         ...doc.data()
       }))
 
-      const userSymbols = userCoins.value.map(coin => coin.symbol);  
+      const userSymbols = userCoins.value.map(coin => coin.symbol);
       filteredcoins.value = coins.filter(coin =>userSymbols.includes(coin.symbol))
 
 
       totalCoinsValue.value = userCoins.value.reduce((acc, coin) =>  {
         return acc + coin.amountOwned * Number(getPriceUsd(coin.symbol))
       }, 0);
-      }
+    }
     else {
       isLoggedIn.value = false;
     }
@@ -65,9 +65,9 @@ const handleInvest = (coinName) => {
 <template>
   <div>
     <div class="text-white text-center mt-[20px] w-[800px] rounded-[10px] p-[20px] mx-[150px] font-bold text-2xl bg-[#1B2028] mx-auto ">
-    <h1>YOUR TOTAL BALANCE</h1>
-    <p>{{ totalCoinsValue.toFixed(2) }}</p>
-  </div>
+      <h1>YOUR TOTAL BALANCE</h1>
+      <p>{{ totalCoinsValue.toFixed(2) }}</p>
+    </div>
     <div v-for="coin in userCoins" class="text-white text-center mt-[20px] w-[800px] rounded-[10px] p-[20px] mx-[150px] flex justify-between border bg-[#1B2028] mx-auto transform hover:scale-105 transition">
       <img :src="`/static/${(coin.symbol).toLowerCase()}.png`" alt="icon" class="w-16"/>
       <div class="w-[200px] text-white text-2xl"><p class="cursor-pointer"  @click="handleInvest(coin.coinName)">{{ coin.coinName }}</p></div>

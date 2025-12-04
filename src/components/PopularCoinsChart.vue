@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { Line } from "vue-chartjs";
 import ChartService from "../service/chartService";
 import { Chart, registerables } from "chart.js";
@@ -10,8 +10,8 @@ const coinsStore = useCoinsStore();
 
 const topCoins = computed(() => {
   return [...coinsStore.coinDataTop50]
-    .sort((a, b) => parseFloat(b.volumeUsd24Hr) - parseFloat(a.volumeUsd24Hr))
-    .slice(0, 4);
+      .sort((a, b) => parseFloat(b.volumeUsd24Hr) - parseFloat(a.volumeUsd24Hr))
+      .slice(0, 4);
 });
 
 const coinColors2 = ref({});
@@ -24,6 +24,13 @@ const colors = [
 
 const selectedCoinData = ref("1DAY");
 const chartData = ref({});
+const isLoading = ref(false);
+
+const timeIntervals = [
+  { value: "1DAY", label: "Last 24 Hours" },
+  { value: "7DAY", label: "Last 7 Days" },
+  { value: "1MTH", label: "Last 30 Days" }
+];
 
 const chartOptions = {
   responsive: true,
@@ -50,17 +57,43 @@ const chartOptions = {
 };
 
 const fetchChartData = async () => {
+  isLoading.value = true;
+  chartData.value = {}; // Clear existing data
+
   for (const coin of topCoins.value) {
     try {
+      // Ensure colors are initialized for this coin
+      if (!coinColors2.value[coin.id]) {
+        const index = topCoins.value.findIndex(c => c.id === coin.id);
+        coinColors2.value[coin.id] = {
+          backgroundColor: colors[index % colors.length],
+          borderColor: colors[index % colors.length].replace("0.5", "1"),
+        };
+      }
+
       const response = await ChartService.getChart(coin.id, selectedCoinData.value);
 
       const chartArray = response.data?.data;
 
       if (chartArray && chartArray.length > 0) {
-        const prices = chartArray.map((entry) => ({
-          date: new Date(entry.date).toLocaleTimeString(),
-          price: parseFloat(entry.priceUsd),
-        }));
+        const prices = chartArray.map((entry) => {
+          const date = new Date(entry.time || entry.date);
+          let formattedDate;
+
+          // Format date based on selected interval
+          if (selectedCoinData.value === "1DAY") {
+            formattedDate = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } else if (selectedCoinData.value === "7DAY") {
+            formattedDate = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          } else {
+            formattedDate = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          }
+
+          return {
+            date: formattedDate,
+            price: parseFloat(entry.priceUsd),
+          };
+        });
 
         chartData.value[coin.id] = {
           labels: prices.map((entry) => entry.date),
@@ -82,7 +115,14 @@ const fetchChartData = async () => {
       console.error("Error fetching chart data for " + coin.id, error);
     }
   }
+
+  isLoading.value = false;
 };
+
+// Watch for changes in selected interval
+watch(selectedCoinData, () => {
+  fetchChartData();
+});
 
 onMounted(() => {
   topCoins.value.forEach((coin, index) => {
@@ -119,12 +159,34 @@ function formatPrice(price) {
       Today's most popular coins chart
     </h1>
 
+    <!-- Time Interval Selector -->
+    <div className="w-full flex justify-center mb-6">
+      <select
+          v-model="selectedCoinData"
+          className="bg-[#2A3038] text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer"
+      >
+        <option
+            v-for="interval in timeIntervals"
+            :key="interval.value"
+            :value="interval.value"
+        >
+          {{ interval.label }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div v-if="isLoading" className="w-full text-center text-white mb-4">
+      Loading charts...
+    </div>
+
+    <!-- Charts -->
     <div v-for="coin in topCoins" :key="coin.id" className="w-[45%] mb-6">
       <h2 class="text-white font-bold text-center mb-2">{{ coin.symbol }} Price</h2>
       <Line
-        v-if="chartData[coin.id] && chartData[coin.id].labels.length > 0"
-        :data="chartData[coin.id]"
-        :options="chartOptions"
+          v-if="chartData[coin.id] && chartData[coin.id].labels.length > 0"
+          :data="chartData[coin.id]"
+          :options="chartOptions"
       />
       <p v-else class="text-white text-center">
         Error fetching chart data for {{ coin.symbol }}

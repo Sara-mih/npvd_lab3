@@ -1,4 +1,4 @@
-<script setup>
+npm run dev<script setup>
 import NavbarComponent from './components/NavbarComponent.vue';
 import { useCoinsStore } from './store/coinsStore'
 import { onMounted } from 'vue';
